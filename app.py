@@ -5,6 +5,8 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 # ======================
 # CONFIGURACIÓN GENERAL
@@ -30,22 +32,22 @@ vehiculos, hechos, fallecidos = cargar_datos()
 # ======================
 # SIDEBAR PRINCIPAL
 # ======================
-st.sidebar.title("📊 Cuadro de mando interactivo")
+st.sidebar.title("Cuadro de mando interactivo")
 modo = st.sidebar.radio(
     "Selecciona una sección:",
-    ("Exploración de Datos", "Modelos de Predicción")
+    ("Exploración de Datos", "Modelos de Predicción", "Visualizaciones")
 )
 
 # ======================
 # SECCIÓN 1: EXPLORACIÓN
 # ======================
 if modo == "Exploración de Datos":
-    st.header("🔍 Exploración interactiva de datos")
+    st.header("Exploración interactiva de datos")
 
     dataset = st.selectbox("Selecciona un conjunto de datos:", ["Vehículos", "Hechos", "Fallecidos"])
     df = {"Vehículos": vehiculos, "Hechos": hechos, "Fallecidos": fallecidos}[dataset]
 
-    st.markdown("### 🎚️ Filtros de visualización")
+    st.markdown("### Filtros de visualización")
 
     if "ano_ocu" in df.columns:
         anos = sorted(df["ano_ocu"].dropna().unique())
@@ -71,14 +73,14 @@ if modo == "Exploración de Datos":
         if mupio_sel:
             df = df[df["mupio_ocu"].isin(mupio_sel)]
 
-    st.markdown("### 📋 Primeras filas del dataset filtrado")
+    st.markdown("### Primeras filas del dataset filtrado")
     st.dataframe(df.head(20))
 
 # ======================
 # SECCIÓN 2: MODELOS
 # ======================
 elif modo == "Modelos de Predicción":
-    st.header("🤖 Modelos de predicción y clasificación")
+    st.header("Modelos de predicción y clasificación")
 
     modelo_sel = st.selectbox(
         "Selecciona un modelo:",
@@ -88,11 +90,9 @@ elif modo == "Modelos de Predicción":
         ]
     )
 
-    # --------------------------
     # MODELO 1: SEXO DE PERSONA
-    # --------------------------
     if "sexo" in modelo_sel.lower():
-        st.subheader("🧍‍♂️ Modelo 1: Predicción del sexo de la persona")
+        st.subheader("Modelo 1: Predicción del sexo de la persona")
 
         df = fallecidos.copy().dropna(subset=["sexo_per"])
         features = ["depto_ocu", "zona_ocu", "tipo_eve", "tipo_veh", "g_hora_5"]
@@ -106,9 +106,9 @@ elif modo == "Modelos de Predicción":
         model.fit(X_train, y_train)
 
         acc = accuracy_score(y_test, model.predict(X_test))
-        st.info(f"📈 Precisión general del modelo: {acc*100:.2f}%")
+        st.info(f"Precisión general del modelo: {acc*100:.2f}%")
 
-        st.markdown("### 🔢 Prueba una predicción manual")
+        st.markdown("### Prueba una predicción manual")
         depto = st.selectbox("Departamento:", sorted(df["depto_ocu"].unique()))
         zona = st.selectbox("Zona:", sorted(df["zona_ocu"].unique()))
         tipo_eve = st.selectbox("Tipo de evento:", sorted(df["tipo_eve"].unique()))
@@ -117,24 +117,18 @@ elif modo == "Modelos de Predicción":
 
         if st.button("Predecir sexo"):
             entrada = pd.DataFrame([[depto, zona, tipo_eve, tipo_veh, g_hora]], columns=features)
-
-            # Codificar igual que el entrenamiento
             entrada_enc = entrada.copy()
             for col in features:
                 le = LabelEncoder()
                 le.fit(df[col])
                 entrada_enc[col] = le.transform(entrada[col])
-
             pred = model.predict(entrada_enc)[0]
             label_map = dict(enumerate(sorted(df["sexo_per"].unique())))
-            st.success(f"Predicción: **{label_map[pred]}**")
+            st.success(f"Predicción: {label_map[pred]}")
 
-
-    # --------------------------
     # MODELO 2: GRUPO HORARIO
-    # --------------------------
     elif "horario" in modelo_sel.lower():
-        st.subheader("⏰ Modelo 2: Predicción del grupo horario (mañana, tarde, noche)")
+        st.subheader("Modelo 2: Predicción del grupo horario (mañana, tarde, noche)")
 
         df = hechos.copy().dropna(subset=["g_hora_5"])
         features = ["tipo_eve", "mes_ocu", "zona_ocu", "depto_ocu", "tipo_veh", "color_veh"]
@@ -148,9 +142,9 @@ elif modo == "Modelos de Predicción":
         model.fit(X_train, y_train)
 
         acc = accuracy_score(y_test, model.predict(X_test))
-        st.info(f"📈 Precisión general del modelo: {acc*100:.2f}%")
+        st.info(f"Precisión general del modelo: {acc*100:.2f}%")
 
-        st.markdown("### 🔢 Prueba una predicción manual")
+        st.markdown("### Prueba una predicción manual")
         tipo_eve = st.selectbox("Tipo de evento:", sorted(df["tipo_eve"].unique()))
         mes = st.selectbox("Mes de ocurrencia:", sorted(df["mes_ocu"].unique()))
         zona = st.selectbox("Zona:", sorted(df["zona_ocu"].unique()))
@@ -160,15 +154,69 @@ elif modo == "Modelos de Predicción":
 
         if st.button("Predecir grupo horario"):
             entrada = pd.DataFrame([[tipo_eve, mes, zona, depto, tipo_veh, color]], columns=features)
-
-            # Codificar igual que el entrenamiento
             entrada_enc = entrada.copy()
             for col in features:
                 le = LabelEncoder()
                 le.fit(df[col])
                 entrada_enc[col] = le.transform(entrada[col])
-
             pred = model.predict(entrada_enc)[0]
             label_map = dict(enumerate(sorted(df["g_hora_5"].unique())))
-            st.success(f"Predicción: **{label_map[pred]}**")
+            st.success(f"Predicción: {label_map[pred]}")
 
+# ======================
+# SECCIÓN 3: VISUALIZACIONES
+# ======================
+elif modo == "Visualizaciones":
+    st.header("Visualizaciones interactivas")
+
+    st.markdown("### Tipos de vehículos más involucrados en accidentes")
+
+    nivel_detalle = st.radio(
+        "Selecciona nivel de detalle:",
+        ("Básico (todos los años)", "Medio (por año)", "Detallado (por año y departamento)")
+    )
+
+    df = vehiculos.copy()
+    df = df[~df["tipo_veh"].isin(["Ignorado", "nan", "None"])]
+
+    # Nivel básico
+    if "Básico" in nivel_detalle:
+        datos = df["tipo_veh"].value_counts().head(10)
+        titulo = "Tipos de vehículos más involucrados en accidentes (2019–2023)"
+
+    # Nivel medio
+    elif "Medio" in nivel_detalle:
+        anos_disponibles = sorted(df["ano_ocu"].dropna().unique())
+        ano_sel = st.selectbox("Selecciona año:", anos_disponibles)
+        df = df[df["ano_ocu"] == ano_sel]
+        datos = df["tipo_veh"].value_counts().head(10)
+        titulo = f"Tipos de vehículos más involucrados en accidentes ({ano_sel})"
+
+    # Nivel detallado
+    elif "Detallado" in nivel_detalle:
+        anos_disponibles = sorted(df["ano_ocu"].dropna().unique())
+        ano_sel = st.selectbox("Selecciona año:", anos_disponibles)
+        deptos_disponibles = sorted(df["depto_ocu"].dropna().unique())
+        depto_sel = st.selectbox("Selecciona departamento:", deptos_disponibles)
+        df = df[(df["ano_ocu"] == ano_sel) & (df["depto_ocu"] == depto_sel)]
+        datos = df["tipo_veh"].value_counts().head(10)
+        titulo = f"Tipos de vehículos más involucrados en accidentes ({ano_sel}, {depto_sel})"
+
+    # Calcular porcentaje
+    veh_percent = (datos / df["tipo_veh"].count() * 100).round(1)
+
+    # Graficar
+    plt.style.use("seaborn-v0_8-whitegrid")
+    colors = sns.color_palette("RdYlGn", n_colors=10)
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.barplot(x=datos.values, y=datos.index, palette=colors, ax=ax)
+
+    for i, (count, pct) in enumerate(zip(datos.values, veh_percent.values)):
+        ax.text(count + max(datos.values) * 0.01, i, f"{pct}%", va='center', fontsize=10, color='black')
+
+    ax.set_title(titulo, fontsize=14, weight='bold', color='darkred')
+    ax.set_xlabel("Número de accidentes", fontsize=12)
+    ax.set_ylabel("Tipo de vehículo", fontsize=12)
+    ax.set_facecolor('#fefcfb')
+
+    st.pyplot(fig)
