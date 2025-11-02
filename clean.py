@@ -2,7 +2,7 @@ import pandas as pd
 from municipios_diccionario import mapa_mupio  # Importa tu diccionario de municipios
 
 # ============================================================
-# FUNCIÓN GENERAL PARA REEMPLAZAR LOS CÓDIGOS POR SUS TEXTOS
+# FUNCION GENERAL PARA REEMPLAZAR LOS CODIGOS POR SUS TEXTOS
 # ============================================================
 
 def reemplazar_codigos(df, diccionarios):
@@ -13,7 +13,7 @@ def reemplazar_codigos(df, diccionarios):
     return df
 
 # ============================================================
-# DICCIONARIOS COMUNES A TODAS LAS BASES (SIN TILDES NI Ñ)
+# DICCIONARIOS COMUNES
 # ============================================================
 
 diccionarios_comunes = {
@@ -21,9 +21,7 @@ diccionarios_comunes = {
     "g_hora": {
         1: "00:00 a 05:59", 2: "06:00 a 11:59", 3: "12:00 a 17:59", 4: "18:00 a 23:59"
     },
-    "g_hora_5": {
-        1: "Manana", 2: "Tarde", 3: "Noche"
-    },
+    "g_hora_5": {1: "Manana", 2: "Tarde", 3: "Noche"},
     "mes_ocu": {
         1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio",
         7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
@@ -32,10 +30,11 @@ diccionarios_comunes = {
         1: "Lunes", 2: "Martes", 3: "Miercoles", 4: "Jueves", 5: "Viernes", 6: "Sabado", 7: "Domingo"
     },
     "depto_ocu": {
-        1: "Guatemala", 2: "El Progreso", 3: "Sacatepequez", 4: "Chimaltenango", 5: "Escuintla", 6: "Santa Rosa",
-        7: "Solola", 8: "Totonicapan", 9: "Quetzaltenango", 10: "Suchitepequez", 11: "Retalhuleu", 12: "San Marcos",
-        13: "Huehuetenango", 14: "Quiche", 15: "Baja Verapaz", 16: "Alta Verapaz", 17: "Peten", 18: "Izabal",
-        19: "Zacapa", 20: "Chiquimula", 21: "Jalapa", 22: "Jutiapa"
+        1: "Guatemala", 2: "El Progreso", 3: "Sacatepequez", 4: "Chimaltenango", 5: "Escuintla",
+        6: "Santa Rosa", 7: "Solola", 8: "Totonicapan", 9: "Quetzaltenango", 10: "Suchitepequez",
+        11: "Retalhuleu", 12: "San Marcos", 13: "Huehuetenango", 14: "Quiche", 15: "Baja Verapaz",
+        16: "Alta Verapaz", 17: "Peten", 18: "Izabal", 19: "Zacapa", 20: "Chiquimula",
+        21: "Jalapa", 22: "Jutiapa"
     },
     "mupio_ocu": mapa_mupio,
     "zona_ocu": {99: "Ignorada"},
@@ -52,8 +51,9 @@ diccionarios_comunes = {
     },
     "edad_quinquenales": {
         1: "0 - 4", 2: "5 - 9", 3: "10 - 14", 4: "15 - 19", 5: "20 - 24", 6: "25 - 29",
-        7: "30 - 34", 8: "35 - 39", 9: "40 - 44", 10: "45 - 49", 11: "50 - 54", 12: "55 - 59",
-        13: "60 - 64", 14: "65 - 69", 15: "70 - 74", 16: "75 - 79", 17: "80 o mas", 18: "Ignorado"
+        7: "30 - 34", 8: "35 - 39", 9: "40 - 44", 10: "45 - 49", 11: "50 - 54",
+        12: "55 - 59", 13: "60 - 64", 14: "65 - 69", 15: "70 - 74", 16: "75 - 79",
+        17: "80 o mas", 18: "Ignorado"
     },
     "estado_con": {1: "No ebrio", 2: "Ebrio", 9: "Ignorado"},
     "mayor_menor": {1: "Mayor", 2: "Menor", 9: "Ignorado"},
@@ -64,19 +64,17 @@ diccionarios_comunes = {
         18: "Bicicleta", 19: "Avioneta", 20: "Montacargas", 21: "Bus militar", 22: "Cuatrimoto",
         23: "Furgoneta", 99: "Ignorado"
     },
-    "marca_veh": {99: "Ignorado"},
     "color_veh": {
         1: "Rojo", 2: "Blanco", 3: "Azul", 4: "Gris", 5: "Negro", 6: "Verde", 7: "Amarillo",
         8: "Celeste", 9: "Corinto", 10: "Cafe", 11: "Beige", 12: "Turquesa", 13: "Marfil",
         14: "Anaranjado", 15: "Morado", 16: "Rosado", 17: "Varios colores", 99: "Ignorado"
     },
-    "modelo_veh": {9999: "Ignorado"},
     "g_modelo_veh": {
         1: "1970-1979", 2: "1980-1989", 3: "1990-1999", 4: "2000-2009", 5: "2010-2019", 99: "Ignorado"
     },
     "tipo_eve": {
         1: "Colision", 2: "Choque", 3: "Vuelco", 4: "Caida", 5: "Atropello",
-        6: "Derrape", 7: "Embarranco", 8: "Encuneto", 99: "Ignorado"
+        6: "Derrape", 7: "Embarranco", 8: "Encunetamiento", 99: "Ignorado"
     },
     "fall_les": {1: "Fallecido", 2: "Lesionado"},
     "int_o_noint": {1: "Internado", 2: "No internado", 9: "Ignorado"}
@@ -98,14 +96,15 @@ archivos = [
 
 for archivo in archivos:
     print(f"\nProcesando: {archivo}")
-    try:
-        df = pd.read_csv(archivo, encoding='utf-8-sig')
-    except UnicodeDecodeError:
-        df = pd.read_csv(archivo, encoding='utf-8-sig')
-
+    df = pd.read_csv(archivo, encoding='utf-8-sig')  # Soporte UTF-8 con BOM
     df = reemplazar_codigos(df, diccionarios_comunes)
+
+    # 🔹 Eliminar columnas innecesarias
+    columnas_a_eliminar = ['modelo_veh', 'marca_veh']
+    df = df.drop(columns=[col for col in columnas_a_eliminar if col in df.columns], errors='ignore')
+
     salida = archivo.replace(".csv", "_diccionario.csv")
     df.to_csv(salida, index=False, encoding='utf-8', lineterminator='\n')
-    print(f"✅ Archivo procesado guardado como: {salida}")
+    print(f"✅ Guardado: {salida}")
 
 print("\nTodos los archivos fueron procesados correctamente.")
