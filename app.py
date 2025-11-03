@@ -2,11 +2,13 @@ import streamlit as st
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.neighbors import KNeighborsClassifier
 import seaborn as sns
 import matplotlib.pyplot as plt
+import plotly.express as px
 
 # ======================
 # CONFIGURACIÓN GENERAL
@@ -17,8 +19,20 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# --- PALETA DE COLORES INTENSA ---
+PALETTE = ["#002B5B", "#0059B3", "#007ACC", "#FFA500", "#FF6600"]
+
+st.markdown("""
+    <style>
+        body { background-color: #F8F9FA !important; }
+        .stApp { background-color: #F8F9FA; }
+        h1, h2, h3 { color: #002B5B !important; font-weight: 650; }
+        .metric-label, .metric-value { color: #002B5B !important; }
+    </style>
+""", unsafe_allow_html=True)
+
 # ======================
-# CARGA DE DATOS LIMPIOS
+# CARGA DE DATOS
 # ======================
 @st.cache_data
 def cargar_datos():
@@ -30,193 +44,189 @@ def cargar_datos():
 vehiculos, hechos, fallecidos = cargar_datos()
 
 # ======================
-# SIDEBAR PRINCIPAL
+# SIDEBAR
 # ======================
 st.sidebar.title("Cuadro de mando interactivo")
 modo = st.sidebar.radio(
     "Selecciona una sección:",
-    ("Exploración de Datos", "Modelos de Predicción", "Visualizaciones")
+    ("Exploración de Datos", "Modelos de Predicción", "Visualizaciones Detalladas")
 )
 
 # ======================
-# SECCIÓN 1: EXPLORACIÓN
+# SECCIÓN 1: EXPLORACIÓN INTERACTIVA
 # ======================
 if modo == "Exploración de Datos":
     st.header("Exploración interactiva de datos")
 
     dataset = st.selectbox("Selecciona un conjunto de datos:", ["Vehículos", "Hechos", "Fallecidos"])
-    df = {"Vehículos": vehiculos, "Hechos": hechos, "Fallecidos": fallecidos}[dataset]
+    df = {"Vehículos": vehiculos, "Hechos": hechos, "Fallecidos": fallecidos}[dataset].copy()
 
-    st.markdown("### Filtros de visualización")
+    st.markdown("Filtros globales (enlazan todas las gráficas)")
 
-    if "ano_ocu" in df.columns:
-        anos = sorted(df["ano_ocu"].dropna().unique())
-        ano_sel = st.selectbox("Selecciona año:", [None] + list(anos))
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        anos = sorted(df["ano_ocu"].dropna().unique()) if "ano_ocu" in df.columns else []
+        ano_sel = st.multiselect("Año", anos)
         if ano_sel:
-            df = df[df["ano_ocu"] == ano_sel]
-
-    if "sexo_per" in df.columns:
-        sexos = sorted(df["sexo_per"].dropna().unique())
-        sexo_sel = st.multiselect("Selecciona sexo:", sexos)
+            df = df[df["ano_ocu"].isin(ano_sel)]
+    with col2:
+        deptos = sorted(df["depto_ocu"].dropna().unique()) if "depto_ocu" in df.columns else []
+        depto_sel = st.multiselect("Departamento", deptos)
+        if depto_sel:
+            df = df[df["depto_ocu"].isin(depto_sel)]
+    with col3:
+        sexos = sorted(df["sexo_per"].dropna().unique()) if "sexo_per" in df.columns else []
+        sexo_sel = st.multiselect("Sexo", sexos)
         if sexo_sel:
             df = df[df["sexo_per"].isin(sexo_sel)]
 
-    if "depto_ocu" in df.columns:
-        deptos = sorted(df["depto_ocu"].dropna().unique())
-        depto_sel = st.multiselect("Selecciona departamento:", deptos)
-        if depto_sel:
-            df = df[df["depto_ocu"].isin(depto_sel)]
-
-    if "mupio_ocu" in df.columns:
-        mupios = sorted(df["mupio_ocu"].dropna().unique())
-        mupio_sel = st.multiselect("Selecciona municipio:", mupios)
-        if mupio_sel:
-            df = df[df["mupio_ocu"].isin(mupio_sel)]
-
-    st.markdown("### Primeras filas del dataset filtrado")
+    st.markdown("Vista previa de los datos filtrados")
     st.dataframe(df.head(20))
 
+    # === Visualizaciones enlazadas ===
+    st.subheader("Visualizaciones enlazadas e interactivas")
+    vis = st.multiselect("Selecciona las visualizaciones a mostrar:", [
+        "Casos por Departamento",
+        "Evolución temporal",
+        "Top tipos de vehículo",
+        "Distribución por Sexo y Edad",
+        "Proporción de Tipos de Evento",
+        "Casos por Zona",
+        "Comparativo Año vs Departamento"
+    ], default=["Casos por Departamento", "Top tipos de vehículo", "Distribución por Sexo y Edad"])
+
+    # Casos por Departamento (TONALIDADES FUERTES)
+    if "Casos por Departamento" in vis and "depto_ocu" in df.columns:
+        depto_counts = df["depto_ocu"].value_counts().reset_index()
+        depto_counts.columns = ["Departamento", "Casos"]
+        fig = px.bar(
+            depto_counts,
+            x="Departamento",
+            y="Casos",
+            title="Casos por Departamento",
+            color="Casos",
+            color_continuous_scale=["#001F3F", "#004080", "#0074D9", "#66B2FF"]
+        )
+        fig.update_layout(
+            xaxis={'categoryorder': 'total descending'},
+            title_font=dict(size=20, color="#002B5B", family="Arial Black"),
+            yaxis_title="Número de casos",
+            xaxis_title="Departamento",
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)"
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+    # Evolución temporal
+    if "Evolución temporal" in vis and "ano_ocu" in df.columns:
+        serie = df["ano_ocu"].value_counts().sort_index()
+        fig = px.line(serie, markers=True, title="Evolución de casos por año",
+                      color_discrete_sequence=["#004080"])
+        fig.update_traces(line=dict(width=3))
+        st.plotly_chart(fig, use_container_width=True)
+
+    # Top tipos de vehículo + tabla enlazada
+    if "Top tipos de vehículo" in vis and "tipo_veh" in df.columns:
+        top = df["tipo_veh"].value_counts().head(10)
+        fig = px.bar(top, title="Top 10 tipos de vehículo", text=top.values,
+                     color_discrete_sequence=["#002B5B"])
+        fig.update_traces(marker_line_color="#000000", marker_line_width=1.2)
+        st.plotly_chart(fig, use_container_width=True)
+        st.markdown("**Registros correspondientes a los Top 10 vehículos (enlace dinámico)**")
+        st.dataframe(df[df["tipo_veh"].isin(top.index)].head(50))
+
+    # Distribución Sexo-Edad
+    if "Distribución por Sexo y Edad" in vis and "sexo_per" in df.columns and "edad_per" in df.columns:
+        fig = px.box(df, x="sexo_per", y="edad_per", title="Distribución de edad por sexo",
+                     color="sexo_per", color_discrete_sequence=["#003366", "#FF6600"])
+        st.plotly_chart(fig, use_container_width=True)
+
+    # Tipos de evento
+    if "Proporción de Tipos de Evento" in vis and "tipo_eve" in df.columns:
+        fig = px.pie(df, names="tipo_eve", title="Proporción de tipos de evento",
+                     color_discrete_sequence=["#004080", "#0074D9", "#FF851B", "#FF4136", "#2ECC40"])
+        st.plotly_chart(fig, use_container_width=True)
+
+    # Casos por Zona
+    if "Casos por Zona" in vis and "zona_ocu" in df.columns:
+        fig = px.histogram(df, x="zona_ocu", color="zona_ocu",
+                           title="Distribución por zona", color_discrete_sequence=["#0074D9"])
+        st.plotly_chart(fig, use_container_width=True)
+
+    # Comparativo Año vs Departamento
+    if "Comparativo Año vs Departamento" in vis and {"ano_ocu", "depto_ocu"} <= set(df.columns):
+        fig = px.density_heatmap(df, x="ano_ocu", y="depto_ocu",
+                                 title="Casos por Año y Departamento",
+                                 color_continuous_scale="Blues")
+        st.plotly_chart(fig, use_container_width=True)
+
 # ======================
-# SECCIÓN 2: MODELOS
+# SECCIÓN 2: MODELOS PREDICTIVOS
 # ======================
 elif modo == "Modelos de Predicción":
-    st.header("Modelos de predicción y clasificación")
+    st.header("Comparación de Modelos Predictivos")
 
-    modelo_sel = st.selectbox(
-        "Selecciona un modelo:",
-        [
-            "1️⃣ Predicción del sexo de la persona",
-            "2️⃣ Predicción del grupo horario del accidente"
-        ]
-    )
+    df = fallecidos.copy().dropna(subset=["sexo_per"])
+    features = ["depto_ocu", "zona_ocu", "tipo_eve", "tipo_veh", "g_hora_5"]
+    df = df.dropna(subset=features)
 
-    # MODELO 1: SEXO DE PERSONA
-    if "sexo" in modelo_sel.lower():
-        st.subheader("Modelo 1: Predicción del sexo de la persona")
+    le = LabelEncoder()
+    for col in features + ["sexo_per"]:
+        df[col] = le.fit_transform(df[col])
 
-        df = fallecidos.copy().dropna(subset=["sexo_per"])
-        features = ["depto_ocu", "zona_ocu", "tipo_eve", "tipo_veh", "g_hora_5"]
-        df = df.dropna(subset=features)
+    X = df[features]
+    y = df["sexo_per"]
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
-        X = df[features].apply(LabelEncoder().fit_transform)
-        y = LabelEncoder().fit_transform(df["sexo_per"])
+    modelos = {
+        "Árbol de Decisión": DecisionTreeClassifier(max_depth=6),
+        "Random Forest": RandomForestClassifier(n_estimators=200),
+        "KNN": KNeighborsClassifier(n_neighbors=8)
+    }
 
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
-        model = DecisionTreeClassifier(max_depth=5, random_state=42)
-        model.fit(X_train, y_train)
+    resultados = []
+    for nombre, modelo in modelos.items():
+        modelo.fit(X_train, y_train)
+        pred = modelo.predict(X_test)
+        acc = accuracy_score(y_test, pred)
+        resultados.append([nombre, acc])
 
-        acc = accuracy_score(y_test, model.predict(X_test))
-        st.info(f"Precisión general del modelo: {acc*100:.2f}%")
+        st.subheader(f"Matriz de Confusión - {nombre}")
+        cm = confusion_matrix(y_test, pred)
+        fig, ax = plt.subplots()
+        sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", ax=ax)
+        st.pyplot(fig)
 
-        st.markdown("### Prueba una predicción manual")
-        depto = st.selectbox("Departamento:", sorted(df["depto_ocu"].unique()))
-        zona = st.selectbox("Zona:", sorted(df["zona_ocu"].unique()))
-        tipo_eve = st.selectbox("Tipo de evento:", sorted(df["tipo_eve"].unique()))
-        tipo_veh = st.selectbox("Tipo de vehículo:", sorted(df["tipo_veh"].unique()))
-        g_hora = st.selectbox("Grupo horario:", sorted(df["g_hora_5"].unique()))
-
-        if st.button("Predecir sexo"):
-            entrada = pd.DataFrame([[depto, zona, tipo_eve, tipo_veh, g_hora]], columns=features)
-            entrada_enc = entrada.copy()
-            for col in features:
-                le = LabelEncoder()
-                le.fit(df[col])
-                entrada_enc[col] = le.transform(entrada[col])
-            pred = model.predict(entrada_enc)[0]
-            label_map = dict(enumerate(sorted(df["sexo_per"].unique())))
-            st.success(f"Predicción: {label_map[pred]}")
-
-    # MODELO 2: GRUPO HORARIO
-    elif "horario" in modelo_sel.lower():
-        st.subheader("Modelo 2: Predicción del grupo horario (mañana, tarde, noche)")
-
-        df = hechos.copy().dropna(subset=["g_hora_5"])
-        features = ["tipo_eve", "mes_ocu", "zona_ocu", "depto_ocu", "tipo_veh", "color_veh"]
-        df = df.dropna(subset=features)
-
-        X = df[features].apply(LabelEncoder().fit_transform)
-        y = LabelEncoder().fit_transform(df["g_hora_5"])
-
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=1)
-        model = RandomForestClassifier(n_estimators=200, max_depth=10, random_state=1)
-        model.fit(X_train, y_train)
-
-        acc = accuracy_score(y_test, model.predict(X_test))
-        st.info(f"Precisión general del modelo: {acc*100:.2f}%")
-
-        st.markdown("### Prueba una predicción manual")
-        tipo_eve = st.selectbox("Tipo de evento:", sorted(df["tipo_eve"].unique()))
-        mes = st.selectbox("Mes de ocurrencia:", sorted(df["mes_ocu"].unique()))
-        zona = st.selectbox("Zona:", sorted(df["zona_ocu"].unique()))
-        depto = st.selectbox("Departamento:", sorted(df["depto_ocu"].unique()))
-        tipo_veh = st.selectbox("Tipo de vehículo:", sorted(df["tipo_veh"].unique()))
-        color = st.selectbox("Color del vehículo:", sorted(df["color_veh"].unique()))
-
-        if st.button("Predecir grupo horario"):
-            entrada = pd.DataFrame([[tipo_eve, mes, zona, depto, tipo_veh, color]], columns=features)
-            entrada_enc = entrada.copy()
-            for col in features:
-                le = LabelEncoder()
-                le.fit(df[col])
-                entrada_enc[col] = le.transform(entrada[col])
-            pred = model.predict(entrada_enc)[0]
-            label_map = dict(enumerate(sorted(df["g_hora_5"].unique())))
-            st.success(f"Predicción: {label_map[pred]}")
+    # Comparativa visual
+    comp = pd.DataFrame(resultados, columns=["Modelo", "Precisión"])
+    st.subheader("Comparación visual de desempeño")
+    modelos_sel = st.multiselect("Selecciona modelos a comparar:", comp["Modelo"], default=comp["Modelo"])
+    fig = px.bar(comp[comp["Modelo"].isin(modelos_sel)], x="Modelo", y="Precisión",
+                 color="Modelo", text="Precisión", color_discrete_sequence=["#003366", "#FF6600", "#3399FF"])
+    fig.update_traces(texttemplate='%{text:.2%}', textposition='outside')
+    st.plotly_chart(fig, use_container_width=True)
+    st.dataframe(comp)
 
 # ======================
-# SECCIÓN 3: VISUALIZACIONES
+# SECCIÓN 3: VISUALIZACIONES DETALLADAS
 # ======================
-elif modo == "Visualizaciones":
-    st.header("Visualizaciones interactivas")
-
-    st.markdown("### Tipos de vehículos más involucrados en accidentes")
-
-    nivel_detalle = st.radio(
-        "Selecciona nivel de detalle:",
-        ("Básico (todos los años)", "Medio (por año)", "Detallado (por año y departamento)")
-    )
-
+elif modo == "Visualizaciones Detalladas":
+    st.header("Visualizaciones Interactivas Detalladas")
+    nivel = st.radio("Nivel de detalle:", ["General", "Por Año", "Por Año y Departamento"])
     df = vehiculos.copy()
-    df = df[~df["tipo_veh"].isin(["Ignorado", "nan", "None"])]
 
-    # Nivel básico
-    if "Básico" in nivel_detalle:
-        datos = df["tipo_veh"].value_counts().head(10)
-        titulo = "Tipos de vehículos más involucrados en accidentes (2019–2023)"
+    if nivel == "Por Año":
+        año = st.selectbox("Año:", sorted(df["ano_ocu"].dropna().unique()))
+        df = df[df["ano_ocu"] == año]
 
-    # Nivel medio
-    elif "Medio" in nivel_detalle:
-        anos_disponibles = sorted(df["ano_ocu"].dropna().unique())
-        ano_sel = st.selectbox("Selecciona año:", anos_disponibles)
-        df = df[df["ano_ocu"] == ano_sel]
-        datos = df["tipo_veh"].value_counts().head(10)
-        titulo = f"Tipos de vehículos más involucrados en accidentes ({ano_sel})"
+    if nivel == "Por Año y Departamento":
+        año = st.selectbox("Año:", sorted(df["ano_ocu"].dropna().unique()))
+        depto = st.selectbox("Departamento:", sorted(df["depto_ocu"].dropna().unique()))
+        df = df[(df["ano_ocu"] == año) & (df["depto_ocu"] == depto)]
 
-    # Nivel detallado
-    elif "Detallado" in nivel_detalle:
-        anos_disponibles = sorted(df["ano_ocu"].dropna().unique())
-        ano_sel = st.selectbox("Selecciona año:", anos_disponibles)
-        deptos_disponibles = sorted(df["depto_ocu"].dropna().unique())
-        depto_sel = st.selectbox("Selecciona departamento:", deptos_disponibles)
-        df = df[(df["ano_ocu"] == ano_sel) & (df["depto_ocu"] == depto_sel)]
-        datos = df["tipo_veh"].value_counts().head(10)
-        titulo = f"Tipos de vehículos más involucrados en accidentes ({ano_sel}, {depto_sel})"
-
-    # Calcular porcentaje
-    veh_percent = (datos / df["tipo_veh"].count() * 100).round(1)
-
-    # Graficar
-    plt.style.use("seaborn-v0_8-whitegrid")
-    colors = sns.color_palette("RdYlGn", n_colors=10)
-    fig, ax = plt.subplots(figsize=(10, 6))
-    sns.barplot(x=datos.values, y=datos.index, palette=colors, ax=ax)
-
-    for i, (count, pct) in enumerate(zip(datos.values, veh_percent.values)):
-        ax.text(count + max(datos.values) * 0.01, i, f"{pct}%", va='center', fontsize=10, color='black')
-
-    ax.set_title(titulo, fontsize=14, weight='bold', color='darkred')
-    ax.set_xlabel("Número de accidentes", fontsize=12)
-    ax.set_ylabel("Tipo de vehículo", fontsize=12)
-    ax.set_facecolor('#fefcfb')
-
-    st.pyplot(fig)
+    st.subheader("Tipos de vehículos más involucrados")
+    top = df["tipo_veh"].value_counts().head(10)
+    fig = px.bar(top, title="Top tipos de vehículo más involucrados",
+                 color_discrete_sequence=["#002B5B"])
+    fig.update_traces(marker_line_color="#000", marker_line_width=1.5)
+    st.plotly_chart(fig, use_container_width=True)
