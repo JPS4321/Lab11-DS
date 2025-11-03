@@ -10,30 +10,55 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import plotly.express as px
 
-# ======================
-# CONFIGURACIÓN GENERAL
-# ======================
+
 st.set_page_config(
-    page_title="Cuadro de mando de accidentes 2019–2023",
+    page_title="Informacion de accidentes 2019–2023",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- PALETA DE COLORES INTENSA ---
 PALETTE = ["#002B5B", "#0059B3", "#007ACC", "#FFA500", "#FF6600"]
 
 st.markdown("""
     <style>
-        body { background-color: #F8F9FA !important; }
-        .stApp { background-color: #F8F9FA; }
-        h1, h2, h3 { color: #002B5B !important; font-weight: 650; }
-        .metric-label, .metric-value { color: #002B5B !important; }
+        body {
+            background-color: #0E1117 !important; /* fondo oscuro principal */
+            color: #FAFAFA !important;            /* texto claro */
+        }
+        .stApp {
+            background-color: #0E1117;            /* mismo tono de fondo */
+        }
+        h1, h2, h3, h4, h5 {
+            color: #00B4D8 !important;            /* azul brillante para títulos */
+            font-weight: 650;
+        }
+        .stSidebar, .st-c2, .st-emotion-cache-1y4p8pa { 
+            background-color: #111418 !important; /* sidebar más oscuro */
+        }
+        .metric-label, .metric-value {
+            color: #FAFAFA !important;            /* texto de métricas claro */
+        }
+        .stDataFrame, .dataframe {
+            background-color: #1A1D23 !important; /* tablas ligeramente más claras */
+            color: #FAFAFA !important;
+        }
+        .stMarkdown, .stText {
+            color: #FAFAFA !important;
+        }
+        .stButton>button {
+            background-color: #0077B6;
+            color: white;
+            border-radius: 8px;
+            border: none;
+        }
+        .stButton>button:hover {
+            background-color: #0096C7;
+        }
     </style>
 """, unsafe_allow_html=True)
 
-# ======================
-# CARGA DE DATOS
-# ======================
+
+
 @st.cache_data
 def cargar_datos():
     vehiculos = pd.read_csv("./working_dir/Vehiculos_2019_2023_diccionario.csv", encoding="utf-8")
@@ -43,18 +68,14 @@ def cargar_datos():
 
 vehiculos, hechos, fallecidos = cargar_datos()
 
-# ======================
 # SIDEBAR
-# ======================
-st.sidebar.title("Cuadro de mando interactivo")
+st.sidebar.title("Menu de opciones")
 modo = st.sidebar.radio(
     "Selecciona una sección:",
     ("Exploración de Datos", "Modelos de Predicción", "Visualizaciones Detalladas")
 )
 
-# ======================
 # SECCIÓN 1: EXPLORACIÓN INTERACTIVA
-# ======================
 if modo == "Exploración de Datos":
     st.header("Exploración interactiva de datos")
 
@@ -95,7 +116,7 @@ if modo == "Exploración de Datos":
         "Comparativo Año vs Departamento"
     ], default=["Casos por Departamento", "Top tipos de vehículo", "Distribución por Sexo y Edad"])
 
-    # Casos por Departamento (TONALIDADES FUERTES)
+    # Casos por Departamento 
     if "Casos por Departamento" in vis and "depto_ocu" in df.columns:
         depto_counts = df["depto_ocu"].value_counts().reset_index()
         depto_counts.columns = ["Departamento", "Casos"]
@@ -160,9 +181,7 @@ if modo == "Exploración de Datos":
                                  color_continuous_scale="Blues")
         st.plotly_chart(fig, use_container_width=True)
 
-# ======================
 # SECCIÓN 2: MODELOS PREDICTIVOS
-# ======================
 elif modo == "Modelos de Predicción":
     st.header("Comparación de Modelos Predictivos")
 
@@ -193,23 +212,40 @@ elif modo == "Modelos de Predicción":
 
         st.subheader(f"Matriz de Confusión - {nombre}")
         cm = confusion_matrix(y_test, pred)
-        fig, ax = plt.subplots()
-        sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", ax=ax)
-        st.pyplot(fig)
 
-    # Comparativa visual
+        # 
+        fig, ax = plt.subplots(figsize=(4, 3))  
+        sns.heatmap(
+            cm,
+            annot=True,
+            fmt="d",
+            cmap="Blues",
+            ax=ax,
+            cbar=False,
+            annot_kws={"size": 8}  
+        )
+        ax.set_xlabel("Predicción", fontsize=10)
+        ax.set_ylabel("Valor real", fontsize=10)
+        ax.tick_params(axis='both', labelsize=8)
+        st.pyplot(fig, use_container_width=False)
+
     comp = pd.DataFrame(resultados, columns=["Modelo", "Precisión"])
     st.subheader("Comparación visual de desempeño")
     modelos_sel = st.multiselect("Selecciona modelos a comparar:", comp["Modelo"], default=comp["Modelo"])
-    fig = px.bar(comp[comp["Modelo"].isin(modelos_sel)], x="Modelo", y="Precisión",
-                 color="Modelo", text="Precisión", color_discrete_sequence=["#003366", "#FF6600", "#3399FF"])
+    fig = px.bar(
+        comp[comp["Modelo"].isin(modelos_sel)],
+        x="Modelo",
+        y="Precisión",
+        color="Modelo",
+        text="Precisión",
+        color_discrete_sequence=["#003366", "#FF6600", "#3399FF"]
+    )
     fig.update_traces(texttemplate='%{text:.2%}', textposition='outside')
     st.plotly_chart(fig, use_container_width=True)
     st.dataframe(comp)
 
-# ======================
+
 # SECCIÓN 3: VISUALIZACIONES DETALLADAS
-# ======================
 elif modo == "Visualizaciones Detalladas":
     st.header("Visualizaciones Interactivas Detalladas")
     nivel = st.radio("Nivel de detalle:", ["General", "Por Año", "Por Año y Departamento"])
